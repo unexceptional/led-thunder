@@ -331,6 +331,8 @@ enum BUTTON_STATE
   BUTTON_PRESS_LONG = 2
 };
 
+const unsigned int BUTTON_LONG_HOLD_TIME_MS = 500U;
+
 // function to determine when a button has been pressed
 // differentiates between a short press and a long press based on hold_time
 int buttonPress()
@@ -353,7 +355,7 @@ int buttonPress()
     // Catch trailing edge of encoder button press
     prev_value = value;
 
-    if ( millis() - hold_time <= 500 )
+    if ( millis() - hold_time <= BUTTON_LONG_HOLD_TIME_MS )
     { 
       lastPress = BUTTON_PRESS_SHORT;
       return BUTTON_PRESS_SHORT; // Register a short button press
@@ -362,18 +364,20 @@ int buttonPress()
   else if ( value != HIGH && prev_value != HIGH ) 
   { 
     // Encoder button is being held down
-    if ( (millis() - hold_time > 500) && lastPress != BUTTON_PRESS_LONG ) { 
+    if ((millis() - hold_time > 500) && (lastPress != BUTTON_PRESS_LONG)) 
+    { 
       lastPress = BUTTON_PRESS_LONG;
       return BUTTON_PRESS_LONG; // Register a long button press
     } 
-    else {
+    else 
+    {
       return BUTTON_PRESS_UNKNOWN;
     }
   } 
-  else {
-    return 0;
+  else 
+  {
+    return BUTTON_PRESS_UNKNOWN;
   }
-
 }
 
 // subroutine for setting the user-defined PWM channel values
@@ -443,7 +447,6 @@ void set_channel(int i,int j) {
   lcd.print(j+1);
   lcd.noBlink();
   lcd.cursor();
-
 }
 
 
@@ -465,14 +468,21 @@ int set_clock(int val, int low_limit, int limit, byte i, byte j) {
 }
 
 
-// subroutine for user-defined sunrise and sunset times
+
 enum SUN_TYPE
 {
   SETTINGS_SUNRISE = 0,
   SETTINGS_SUNSET = 1
 };
 
-void sunrise_sunset(int sunType) {
+enum SUN_DATA_TIME
+{
+  SUN_DATA_TIME_HOUR = 0,
+  SUN_DATA_TIME_MINUTE = 1
+};
+
+// subroutine for user-defined sunrise and sunset times
+void sunrise_sunset(byte sunType) {
   lcd.noBlink();
   lcd.cursor();
   byte exitFlag = 0;
@@ -484,13 +494,15 @@ void sunrise_sunset(int sunType) {
     while ( !exitFlag ) {
       menu_advance(MENU_SUNRISE_SUNSET);
 
-      switch (menu[MENU_SUNRISE_SUNSET][1]) {
-      case 0:
-        lcd.setCursor(2,1);
-        break;
-      case 1:
-        lcd.setCursor(5,1);
-        break;
+      // User chooses whether to set hour or minute
+      switch (menu[MENU_SUNRISE_SUNSET][1])
+      {
+        case 0:
+          lcd.setCursor(2,1);
+          break;
+        case 1:
+          lcd.setCursor(5,1);
+          break;
       }
 
       switch (buttonPress()) 
@@ -500,12 +512,12 @@ void sunrise_sunset(int sunType) {
           switch (menu[MENU_SUNRISE_SUNSET][1]) 
           {
             case 0: // set the hour
-              sunrise_time[sunType][0] = set_sunrise(sunType,menu[MENU_SUNRISE_SUNSET][1],2,23);
-              EEPROM.write(sunType*2+31,sunrise_time[sunType][0]);
+              sunrise_time[sunType][SUN_DATA_TIME_HOUR] = set_sunrise(sunType,menu[MENU_SUNRISE_SUNSET][1],2,23);
+              EEPROM.write(sunType*2+31,sunrise_time[sunType][SUN_DATA_TIME_HOUR]);
               break;
             case 1: // set the minute
-              sunrise_time[sunType][1] = set_sunrise(sunType,menu[MENU_SUNRISE_SUNSET][1],5,59);
-              EEPROM.write(sunType*2+32,sunrise_time[sunType][1]);
+              sunrise_time[sunType][SUN_DATA_TIME_MINUTE] = set_sunrise(sunType,menu[MENU_SUNRISE_SUNSET][1],5,59);
+              EEPROM.write(sunType*2+32,sunrise_time[sunType][SUN_DATA_TIME_MINUTE]);
               break;
           }
           break;
