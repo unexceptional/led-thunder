@@ -188,6 +188,7 @@ byte moonphase_toggle;
 
 enum MENU_OPTIONS
 {
+  MENU_PWM_CHANNELS = 2,
   MENU_CLOCK_SETTINGS = 3,
   MENU_SUNRISE_SUNSET = 4,
   MENU_DAY_NIGHT = 5
@@ -465,7 +466,13 @@ int set_clock(int val, int low_limit, int limit, byte i, byte j) {
 
 
 // subroutine for user-defined sunrise and sunset times
-void sunrise_sunset(byte i) {
+enum SUN_TYPE
+{
+  SETTINGS_SUNRISE = 0,
+  SETTINGS_SUNSET = 1
+};
+
+void sunrise_sunset(int sunType) {
   lcd.noBlink();
   lcd.cursor();
   byte exitFlag = 0;
@@ -475,7 +482,6 @@ void sunrise_sunset(byte i) {
     lcd.setCursor(1,1);
     lcd.print(P(">"));
     while ( !exitFlag ) {
-
       menu_advance(MENU_SUNRISE_SUNSET);
 
       switch (menu[MENU_SUNRISE_SUNSET][1]) {
@@ -485,7 +491,6 @@ void sunrise_sunset(byte i) {
       case 1:
         lcd.setCursor(5,1);
         break;
-
       }
 
       switch (buttonPress()) 
@@ -495,12 +500,12 @@ void sunrise_sunset(byte i) {
           switch (menu[MENU_SUNRISE_SUNSET][1]) 
           {
             case 0: // set the hour
-              sunrise_time[i][0] = set_sunrise(i,menu[MENU_SUNRISE_SUNSET][1],2,23);
-              EEPROM.write(i*2+31,sunrise_time[i][0]);
+              sunrise_time[sunType][0] = set_sunrise(sunType,menu[MENU_SUNRISE_SUNSET][1],2,23);
+              EEPROM.write(sunType*2+31,sunrise_time[sunType][0]);
               break;
             case 1: // set the minute
-              sunrise_time[i][1] = set_sunrise(i,menu[MENU_SUNRISE_SUNSET][1],5,59);
-              EEPROM.write(i*2+32,sunrise_time[i][1]);
+              sunrise_time[sunType][1] = set_sunrise(sunType,menu[MENU_SUNRISE_SUNSET][1],5,59);
+              EEPROM.write(sunType*2+32,sunrise_time[sunType][1]);
               break;
           }
           break;
@@ -1569,12 +1574,12 @@ lcd.print(P("Set Clock"));
                 break;
               case 3: // set sunrise
                 if ( auto_mode == 0 ) {
-                  sunrise_sunset(0);
+                  sunrise_sunset(SETTINGS_SUNRISE);
                 }
                 break;
               case 4:
                 if ( auto_mode == 0 ) {
-                  sunrise_sunset(1);
+                  sunrise_sunset(SETTINGS_SUNSET);
                 }
                 break;
               case 5: // set ramp time
