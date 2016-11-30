@@ -185,6 +185,14 @@ byte dayStatus = 4; // day/night/sunrise/sunset indicator
 
 byte toggleMode = 1; // user override mode to set day/off/night/program lighting
 byte moonphase_toggle;
+
+enum MENU_OPTIONS
+{
+  MENU_CLOCK_SETTINGS = 3,
+  MENU_SUNRISE_SUNSET = 4,
+  MENU_DAY_NIGHT = 5
+};
+
 byte menu[7][2] = {
   {
     4,0                                                                                                  }
@@ -208,7 +216,15 @@ boolean last_mode = 1;
 boolean prev_value = HIGH;
 long hold_time = 0;
 long timeDisp = 100;
-boolean ynchoice = 1;
+
+
+enum USER_SELECTION
+{
+  CHOSE_NO = 0,
+  CHOSE_YES = 1
+};
+
+boolean userSelection = CHOSE_YES;
 //byte subbars = 0;
 byte remainder = 0;
 //int button = 0;
@@ -436,9 +452,7 @@ int set_clock(int val, int low_limit, int limit, byte i, byte j) {
 
   lcd.blink();
   lcd.noCursor();
-  //char buf[4];
-  //clock_settings[menu[3][1]] = val;
-  clock_settings[menu[3][1]] = value_advance(val,low_limit,limit,i,j);
+  clock_settings[menu[MENU_CLOCK_SETTINGS][1]] = value_advance(val,low_limit,limit,i,j);
 
   lcd.noBlink();
   lcd.cursor();
@@ -446,7 +460,7 @@ int set_clock(int val, int low_limit, int limit, byte i, byte j) {
     cloudStart[i] = 0; // gotta reset the cloudStart time so that clouds still work if we've set the time back
   }
   last_mode = 1; // reset this so that the sunrise & sunset are recalculated after the clock change
-  return clock_settings[menu[3][1]];
+  return clock_settings[menu[MENU_CLOCK_SETTINGS][1]];
 }
 
 
@@ -462,9 +476,9 @@ void sunrise_sunset(byte i) {
     lcd.print(P(">"));
     while ( !exitFlag ) {
 
-      menu_advance(4);
+      menu_advance(MENU_SUNRISE_SUNSET);
 
-      switch (menu[4][1]) {
+      switch (menu[MENU_SUNRISE_SUNSET][1]) {
       case 0:
         lcd.setCursor(2,1);
         break;
@@ -474,24 +488,26 @@ void sunrise_sunset(byte i) {
 
       }
 
-      switch ( buttonPress() ) {
-      case BUTTON_PRESS_SHORT: 
-        // Set the sunrise or sunset time
-        switch (menu[4][1]) {
-          case 0: // set the hour
-            sunrise_time[i][0] = set_sunrise(i,menu[4][1],2,23);
-            EEPROM.write(i*2+31,sunrise_time[i][0]);
-            break;
-          case 1: // set the minute
-            sunrise_time[i][1] = set_sunrise(i,menu[4][1],5,59);
-            EEPROM.write(i*2+32,sunrise_time[i][1]);
-            break;
+      switch (buttonPress()) 
+      {
+        case BUTTON_PRESS_SHORT: 
+          // Set the sunrise or sunset time
+          switch (menu[MENU_SUNRISE_SUNSET][1]) 
+          {
+            case 0: // set the hour
+              sunrise_time[i][0] = set_sunrise(i,menu[MENU_SUNRISE_SUNSET][1],2,23);
+              EEPROM.write(i*2+31,sunrise_time[i][0]);
+              break;
+            case 1: // set the minute
+              sunrise_time[i][1] = set_sunrise(i,menu[MENU_SUNRISE_SUNSET][1],5,59);
+              EEPROM.write(i*2+32,sunrise_time[i][1]);
+              break;
           }
           break;
-      case BUTTON_PRESS_LONG: 
-        // exit the loop
-        exitFlag = 1;
-        break;
+        case BUTTON_PRESS_LONG: 
+          // exit the loop
+          exitFlag = 1;
+          break;
       }
     }
   }
@@ -690,8 +706,8 @@ void pwm_config(int i) {
 
     boolean f = 0;
     while ( !exitFlag ) {
-      menu_advance(2);
-      switch (menu[2][1]) {
+      menu_advance(MENU_PWM_CHANNELS);
+      switch (menu[MENU_PWM_CHANNELS][1]) {
       case 0:
         lcd.setCursor(0,0);
         break;
@@ -1305,36 +1321,37 @@ int main(void) {
   
           if ( position > lastPosition ) {
             lcd.setCursor(15,0);
-            ynchoice = 0;
+            userSelection = CHOSE_NO;
+            lastPosition = position;
+          }
+          else if ( position < lastPosition )
+          {
+            lcd.setCursor(13,0);
+            userSelection = CHOSE_YES;
             lastPosition = position;
           }
 
-        else if ( position < lastPosition ) {
-          lcd.setCursor(13,0);
-          ynchoice = 1;
-          lastPosition = position;
-        }
+          if ((userSelection == CHOSE_NO) && (buttonPress() == BUTTON_PRESS_SHORT))
+          {
+            menu_index = 255;
+            exitFlag = 1;
+            userSelection = 1; // reset to default for next cycle
+            lcd.clear();  
+          }  
+          else if((userSelection == CHOSE_YES) && (buttonPress() == BUTTON_PRESS_SHORT))
+          {
+            menu_index = 255;
+            exitFlag = 0;
+  
+            lcd.clear();
+            menu[1][1] = 0;
+            while ( exitFlag != 1 ) {
 
-        if ( (ynchoice == 0) && (buttonPress() == 1) ) {
-          menu_index = 255;
-          exitFlag = 1;
-          ynchoice = 1; // reset to default for next cycle
-          lcd.clear();
-          
-        }  
-        else if ( (ynchoice == 1) && (buttonPress() == 1)) {
-          menu_index = 255;
-          exitFlag = 0;
-
-          lcd.clear();
-          menu[1][1] = 0;
-          while ( exitFlag != 1 ) {
-
-            menu_advance(1);
-            lcd.setCursor(0,0);
-            lcd.noBlink();
-            lcd.noCursor();
-            if ( menu_index != menu[1][1]) {
+              menu_advance(1);
+              lcd.setCursor(0,0);
+              lcd.noBlink();
+              lcd.noCursor();
+              if ( menu_index != menu[1][1]) {
               menu_index = menu[1][1];
 
               switch ( menu[1][1] ) {
