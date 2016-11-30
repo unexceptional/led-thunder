@@ -71,7 +71,7 @@
 //#include <util/delay.h>
 #include <Wire.h>
 #include <LiquidCrystal.h>
-#include <Bounce.h>
+#include "Bounce.h"
 #include <EEPROM.h>
 #include "RTClib.h"
 #include "TimeLord.h"
@@ -307,6 +307,13 @@ byte p1[8] = {
  0x1E};
  */
 
+enum BUTTON_STATE 
+{
+  BUTTON_PRESS_UNKNOWN = 0,
+  BUTTON_PRESS_SHORT = 1,
+  BUTTON_PRESS_LONG = 2
+};
+
 // function to determine when a button has been pressed
 // differentiates between a short press and a long press based on hold_time
 int buttonPress()
@@ -315,28 +322,35 @@ int buttonPress()
   byte value = bouncer.read(); // Get the update value
   if ( value == HIGH && prev_value == HIGH ) { // Encoder button is not pressed
     prev_value = value;
-    return 0;
+    return BUTTON_PRESS_UNKNOWN;
   } 
-  else if ( value != HIGH && prev_value == HIGH ) { // Catch leading edge of encoder button press, start timing
+  else if ( value != HIGH && prev_value == HIGH ) 
+  { 
+    // Catch leading edge of encoder button press, start timing
     prev_value = value;
     hold_time = millis();
-    return 0;
+    return BUTTON_PRESS_UNKNOWN;
   } 
-  else if ( value == HIGH && prev_value != HIGH ) { // Catch trailing edge of encoder button press
+  else if ( value == HIGH && prev_value != HIGH ) 
+  { 
+    // Catch trailing edge of encoder button press
     prev_value = value;
 
-    if ( millis() - hold_time <= 500 ) { 
-      lastPress = 1;
-      return 1; // Register a short button press
+    if ( millis() - hold_time <= 500 )
+    { 
+      lastPress = BUTTON_PRESS_SHORT;
+      return BUTTON_PRESS_SHORT; // Register a short button press
     }
   } 
-  else if ( value != HIGH && prev_value != HIGH ) { // Encoder button is being held down
-    if ( (millis() - hold_time > 500) && lastPress != 2 ) { 
-      lastPress = 2;
-      return 2; // Register a long button press
+  else if ( value != HIGH && prev_value != HIGH ) 
+  { 
+    // Encoder button is being held down
+    if ( (millis() - hold_time > 500) && lastPress != BUTTON_PRESS_LONG ) { 
+      lastPress = BUTTON_PRESS_LONG;
+      return BUTTON_PRESS_LONG; // Register a long button press
     } 
     else {
-      return 0;
+      return BUTTON_PRESS_UNKNOWN;
     }
   } 
   else {
@@ -461,20 +475,21 @@ void sunrise_sunset(byte i) {
       }
 
       switch ( buttonPress() ) {
-      case 1: // the button has been short-pressed! set the sunrise or sunset time
+      case BUTTON_PRESS_SHORT: 
+        // Set the sunrise or sunset time
         switch (menu[4][1]) {
-        case 0: // set the hour
-          sunrise_time[i][0] = set_sunrise(i,menu[4][1],2,23);
-          EEPROM.write(i*2+31,sunrise_time[i][0]);
+          case 0: // set the hour
+            sunrise_time[i][0] = set_sunrise(i,menu[4][1],2,23);
+            EEPROM.write(i*2+31,sunrise_time[i][0]);
+            break;
+          case 1: // set the minute
+            sunrise_time[i][1] = set_sunrise(i,menu[4][1],5,59);
+            EEPROM.write(i*2+32,sunrise_time[i][1]);
+            break;
+          }
           break;
-        case 1: // set the minute
-          sunrise_time[i][1] = set_sunrise(i,menu[4][1],5,59);
-          EEPROM.write(i*2+32,sunrise_time[i][1]);
-          break;
-        }
-
-        break;
-      case 2: // long button press, exit the loop
+      case BUTTON_PRESS_LONG: 
+        // exit the loop
         exitFlag = 1;
         break;
       }
@@ -555,8 +570,8 @@ int value_advance(int setpoint,int minimum,int maximum,byte cursor_pos_A,byte cu
     setpoint = maximum;
   }
 
-  while ( buttonPress() != 1 ) {
-
+  while ( buttonPress() != BUTTON_PRESS_SHORT ) 
+  {
     if ( position > lastPosition ) {
       lastPosition = position;
 
@@ -720,10 +735,10 @@ void pwm_config(int i) {
         break;
       }
       switch ( buttonPress() ) {
-      case 1:
+      case BUTTON_PRESS_SHORT:
         set_channel(i,menu[2][1]);
         break;
-      case 2:
+      case BUTTON_PRESS_LONG:
         exitFlag = 1;
         break;
       }
@@ -1267,37 +1282,32 @@ int main(void) {
 
 
     lcd.setCursor(0, 0);
-    switch (buttonPress()) {
-    case 0: 
-
-      // Encoder button is not pressed
-
-      break;
-    case 1: // Only catch leading edge of encoder button press
-      menu[0][1]++;
-
-      if ( menu[0][1] > menu[0][0] ) { 
-        menu[0][1] = 0; 
-      }
-      break;
-    case 2: // Encoder button is being held down
-
-      lcd.clear();
-      lcd.noCursor();
-      lcd.setCursor(0,0);
-      lcd.print(P("Enter Setup? Y/N"));
-
-      lcd.setCursor(13,0);
-
-      int exitFlag = 0;
-      while ( !exitFlag ) {
-        cloud_switch = EEPROM.read(6); // do not remove this line, somehow the memory gets corrupted and forgets the value of cloud_switch unless this line helps it to remember. added 2014-6-3
-
-        if ( position > lastPosition ) {
-          lcd.setCursor(15,0);
-          ynchoice = 0;
-          lastPosition = position;
+    switch (buttonPress()) 
+    {
+      case BUTTON_PRESS_UNKNOWN:
+        break;
+      case BUTTON_PRESS_SHORT:
+        menu[0][1]++;
+  
+        if ( menu[0][1] > menu[0][0] ) { 
+          menu[0][1] = 0; 
         }
+        break;
+      case BUTTON_PRESS_LONG:
+        lcd.clear();
+        lcd.noCursor();
+        lcd.print(P("Enter Setup? Y/N"));
+        lcd.setCursor(13,0);
+  
+        int exitFlag = 0;
+        while ( !exitFlag ) {
+          cloud_switch = EEPROM.read(6); // do not remove this line, somehow the memory gets corrupted and forgets the value of cloud_switch unless this line helps it to remember. added 2014-6-3
+  
+          if ( position > lastPosition ) {
+            lcd.setCursor(15,0);
+            ynchoice = 0;
+            lastPosition = position;
+          }
 
         else if ( position < lastPosition ) {
           lcd.setCursor(13,0);
